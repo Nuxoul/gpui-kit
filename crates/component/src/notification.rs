@@ -125,6 +125,7 @@ pub struct Notification {
     placement: Option<Anchor>,
     delivery: Option<NotificationDelivery>,
     autohide: bool,
+    duration: Option<Duration>,
     action_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> Button>>,
     content_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement>>,
     on_click: Option<Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>>,
@@ -185,6 +186,7 @@ impl Notification {
             placement: None,
             delivery: None,
             autohide: true,
+            duration: None,
             action_builder: None,
             content_builder: None,
             on_click: None,
@@ -320,6 +322,14 @@ impl Notification {
     /// Set the auto hide of the notification, default is true.
     pub fn autohide(mut self, autohide: bool) -> Self {
         self.autohide = autohide;
+        self
+    }
+
+    /// Set the in-app autohide duration, retaining the official remaining-time clock.
+    /// Unspecified durations keep the upstream five-second default. Ignored when
+    /// `autohide(false)` is selected; system delivery remains platform-owned.
+    pub fn duration(mut self, duration: Duration) -> Self {
+        self.duration = Some(duration);
         self
     }
 
@@ -835,6 +845,7 @@ impl NotificationList {
 
         let id = notification.id.clone();
         let autohide = notification.autohide;
+        let duration = notification.duration.unwrap_or(Duration::from_secs(5));
         let window_id = window.window_handle().window_id();
 
         let notification = cx.new(|_| notification);
@@ -869,7 +880,7 @@ impl NotificationList {
             id,
             notification,
             ToastOptions {
-                timeout: autohide.then_some(Duration::from_secs(5)),
+                timeout: autohide.then_some(duration),
             },
             cx.background_executor().now(),
         );
