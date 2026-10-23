@@ -1,0 +1,13 @@
+{
+  "purpose": "Archival record only; not an active GPUI Kit dependency or source package",
+  "package": "gpui-pre-windows",
+  "version": "0.3.9",
+  "source": "https://static.crates.io/crates/gpui-pre-windows/gpui-pre-windows-0.3.9.crate",
+  "archive_sha256": "513d4f0fc7d596d3bdef2a73a524ffb83dabc95bf484f2855a698e7f431290a9",
+  "upstream_repository": "https://github.com/zed-industries/zed",
+  "snapshot_revision": "93d745668805029476e6d7fbb19652116fed51de",
+  "file": "src/events.rs",
+  "match_once": "            WM_MOUSEACTIVATE => Some(MA_ACTIVATE as isize),",
+  "replacement": "            WM_MOUSEACTIVATE => {\n                let no_activate = unsafe { GetWindowLongPtrW(handle, GWL_EXSTYLE) }\n                    & WS_EX_NOACTIVATE.0 as isize\n                    != 0;\n                Some(if no_activate {\n                    MA_NOACTIVATE\n                } else {\n                    MA_ACTIVATE\n                } as isize)\n            }",
+  "instructions": "Verify the immutable published archive checksum and exactly one match before replacing. Preserve its Apache-2.0 license. Rust uses the live native noactivate policy; the application platform adapter still owns setting it. This record is not applied by Cargo in this fork and is not an upstream contribution."
+}
