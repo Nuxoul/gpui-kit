@@ -128,7 +128,8 @@ pub struct Notification {
     duration: Option<Duration>,
     action_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> Button>>,
     content_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement>>,
-    header_action_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement>>,
+    header_action_builder:
+        Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement>>,
     on_click: Option<Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>>,
     on_close: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
     transition_status: ToastTransitionStatus,
