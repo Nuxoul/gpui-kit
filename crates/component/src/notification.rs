@@ -128,6 +128,7 @@ pub struct Notification {
     duration: Option<Duration>,
     action_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> Button>>,
     content_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement>>,
+    header_action_builder: Option<Rc<dyn Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement>>,
     on_click: Option<Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>>,
     on_close: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
     transition_status: ToastTransitionStatus,
@@ -189,6 +190,7 @@ impl Notification {
             duration: None,
             action_builder: None,
             content_builder: None,
+            header_action_builder: None,
             on_click: None,
             on_close: None,
             transition_status: ToastTransitionStatus::Starting,
@@ -363,6 +365,20 @@ impl Notification {
         self
     }
 
+    /// Add a compact action immediately before the built-in close button.
+    ///
+    /// The action shares hover visibility with close and remains visible while
+    /// either header control has keyboard focus. It is omitted while
+    /// exiting. Unlike `action`, this slot does not change automatic dismissal.
+    /// The caller owns the action's state and must stop click propagation when needed.
+    pub fn header_action(
+        mut self,
+        action: impl Fn(&mut Self, &mut Window, &mut Context<Self>) -> AnyElement + 'static,
+    ) -> Self {
+        self.header_action_builder = Some(Rc::new(action));
+        self
+    }
+
     /// Dismiss the notification.
     pub fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let _ = window;
@@ -422,6 +438,24 @@ impl Render for Notification {
 
         let transition_status = self.transition_status;
         let closing = transition_status == ToastTransitionStatus::Ending;
+        let header_action = if closing {
+            None
+        } else {
+            self.header_action_builder
+                .clone()
+                .map(|builder| builder(self, window, cx))
+        };
+        let header_focus = self.header_action_builder.as_ref().map(|_| {
+            window
+                .use_keyed_state("notification-header-focus", cx, |_, cx| {
+                    cx.focus_handle().tab_stop(false)
+                })
+                .read(cx)
+                .clone()
+        });
+        let header_focused = header_focus
+            .as_ref()
+            .is_some_and(|focus| focus.contains_focused(window, cx));
         let icon = match self.type_ {
             None => self.icon.clone(),
             Some(type_) => Some(type_.icon(cx)),
@@ -467,8 +501,14 @@ impl Render for Notification {
                     .absolute()
                     .top_1()
                     .right_1()
+                    .flex()
+                    .items_center()
+                    .gap_1()
                     .invisible()
                     .group_hover("", |this| this.visible())
+                    .when_some(header_focus, |this, focus| this.track_focus(&focus))
+                    .when(header_focused, |this| this.visible())
+                    .when_some(header_action, |this, action| this.child(action))
                     .child(
                         Button::new("close")
                             .icon(IconName::Close)
@@ -1148,6 +1188,19 @@ mod tests {
             Notification::new().in_app_and_system().delivery,
             Some(NotificationDelivery::InAppAndSystem)
         );
+    }
+
+    #[test]
+    fn header_action_is_optional_and_preserves_autohide_policy() {
+        let default = Notification::new();
+        assert!(default.header_action_builder.is_none());
+        let note = Notification::new().header_action(|_, _, _| div().into_any_element());
+        assert!(note.header_action_builder.is_some());
+        assert!(note.autohide);
+        let persistent = Notification::new()
+            .autohide(false)
+            .header_action(|_, _, _| div().into_any_element());
+        assert!(!persistent.autohide);
     }
 
     #[test]
